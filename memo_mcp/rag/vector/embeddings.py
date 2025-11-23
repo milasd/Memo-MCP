@@ -16,6 +16,12 @@ class EmbeddingManager:
     """
 
     def __init__(self, config: RAGConfig):
+        """
+        Initialize the embedding manager.
+
+        Args:
+            config: RAG configuration.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
 
@@ -31,7 +37,11 @@ class EmbeddingManager:
         self._cache_dirty = False
 
     def initialize(self) -> None:
-        """Initialize the embedding model and determine device."""
+        """
+        Initialize the embedding model and determine device.
+
+        Loads the appropriate model and cache, selects best available device.
+        """
         self.logger.info(f"Initializing embedding model: {self.model_name}")
 
         # Determine device
@@ -52,7 +62,12 @@ class EmbeddingManager:
         self.logger.info("Embedding manager initialized successfully")
 
     def _get_best_device(self) -> str:
-        """Determine the best available device."""
+        """
+        Determine the best available device.
+
+        Returns:
+            Device string: "cuda", "mps", or "cpu".
+        """
         if not self.config.use_gpu:
             return "cpu"
 

@@ -25,6 +25,14 @@ class DocumentIndexer:
         embedding_manager: EmbeddingManager,
         vector_store: VectorStore,
     ):
+        """
+        Initialize the document indexer.
+
+        Args:
+            config: RAG configuration.
+            embedding_manager: Embedding generation manager.
+            vector_store: Vector storage backend.
+        """
         self.config = config
         self.embedding_manager = embedding_manager
         self.vector_store = vector_store
@@ -35,7 +43,11 @@ class DocumentIndexer:
         self._load_file_hashes()
 
     def _load_file_hashes(self) -> None:
-        """Load file hashes to track changes."""
+        """
+        Load file hashes to track changes.
+
+        Reads cached file hashes from disk to avoid reprocessing unchanged files.
+        """
         hash_file = self.config.cache_dir / "file_hashes.json"
         if hash_file.exists():
             try:
@@ -48,7 +60,11 @@ class DocumentIndexer:
                 self._file_hashes = {}
 
     def _save_file_hashes(self) -> None:
-        """Save file hashes to disk."""
+        """
+        Save file hashes to disk.
+
+        Persists file hash cache for future sessions.
+        """
         try:
             import json
 
@@ -59,7 +75,15 @@ class DocumentIndexer:
             self.logger.warning(f"Failed to save file hashes: {e}")
 
     def _get_file_hash(self, file_path: Path) -> str:
-        """Generate hash for file content and metadata."""
+        """
+        Generate hash for file content and metadata.
+
+        Args:
+            file_path: Path to the file to hash.
+
+        Returns:
+            MD5 hash string representing file state.
+        """
         try:
             stat = file_path.stat()
             content_hash = hashlib.md5()
@@ -151,6 +175,9 @@ class DocumentIndexer:
         Discover all memo files in the directory structure.
 
         Expected structure: data/memo/YYYY/MM/DD.md
+
+        Returns:
+            List of Path objects to memo files, sorted by date (newest first).
         """
         memo_files: list[Path] = []
 
@@ -184,7 +211,15 @@ class DocumentIndexer:
         return memo_files
 
     async def _process_file_batch(self, files: list[Path]) -> dict[str, int]:
-        """Process a batch of files concurrently."""
+        """
+        Process a batch of files concurrently.
+
+        Args:
+            files: List of file paths to process.
+
+        Returns:
+            Dictionary with processing statistics (processed, skipped, chunks, errors).
+        """
         tasks = [self._process_single_file(file_path) for file_path in files]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -204,7 +239,18 @@ class DocumentIndexer:
         return stats
 
     async def _process_single_file(self, file_path: Path) -> dict[str, Any] | None:
-        """Process a single memo file."""
+        """
+        Process a single memo file.
+
+        Args:
+            file_path: Path to the memo file.
+
+        Returns:
+            Dictionary with processing results or None if failed.
+
+        Raises:
+            Exception: If file processing fails.
+        """
         try:
             # Check if file needs processing
             current_hash = self._get_file_hash(file_path)
@@ -258,7 +304,15 @@ class DocumentIndexer:
             raise
 
     def _read_file_content(self, file_path: Path) -> str:
-        """Read and preprocess file content."""
+        """
+        Read and preprocess file content.
+
+        Args:
+            file_path: Path to the file to read.
+
+        Returns:
+            Preprocessed file content as string.
+        """
         try:
             with open(file_path, encoding=self.config.encoding, errors="ignore") as f:
                 content = f.read()
@@ -272,7 +326,15 @@ class DocumentIndexer:
             return ""
 
     def _preprocess_content(self, content: str) -> str:
-        """Preprocess content before chunking."""
+        """
+        Preprocess content before chunking.
+
+        Args:
+            content: Raw file content.
+
+        Returns:
+            Cleaned and normalized content.
+        """
         # Normalize whitespace
         content = re.sub(r"\n\s*\n", "\n\n", content)  # Normalize paragraph breaks
         content = re.sub(r"[ \t]+", " ", content)  # Normalize spaces
@@ -289,6 +351,12 @@ class DocumentIndexer:
         Split text into overlapping chunks.
 
         Uses intelligent splitting on sentence boundaries when possible.
+
+        Args:
+            text: Text to chunk.
+
+        Returns:
+            List of text chunks.
         """
         if len(text) <= self.config.chunk_size:
             return [text] if text.strip() else []
@@ -345,7 +413,15 @@ class DocumentIndexer:
         return chunks
 
     def _split_sentences(self, text: str) -> list[str]:
-        """Split text into sentences."""
+        """
+        Split text into sentences.
+
+        Args:
+            text: Text to split.
+
+        Returns:
+            List of sentences with short ones merged.
+        """
         # Simple sentence splitting - could be improved with proper NLP libraries
         sentences = re.split(r"(?<=[.!?])\s+", text)
 
@@ -372,7 +448,15 @@ class DocumentIndexer:
         return merged_sentences
 
     def _split_long_sentence(self, sentence: str) -> list[str]:
-        """Split a long sentence into smaller chunks."""
+        """
+        Split a long sentence into smaller chunks.
+
+        Args:
+            sentence: Long sentence to split.
+
+        Returns:
+            List of sentence fragments.
+        """
         chunks = []
 
         # Try splitting on common punctuation first
@@ -403,7 +487,15 @@ class DocumentIndexer:
         return final_chunks
 
     def _split_by_words(self, text: str) -> list[str]:
-        """Split text by words when other methods fail."""
+        """
+        Split text by words when other methods fail.
+
+        Args:
+            text: Text to split.
+
+        Returns:
+            List of word-based chunks.
+        """
         words = text.split()
         chunks = []
         current_chunk = ""
@@ -422,7 +514,15 @@ class DocumentIndexer:
         return chunks
 
     def _get_overlap_text(self, chunk: str) -> str:
-        """Get overlap text from the end of a chunk."""
+        """
+        Get overlap text from the end of a chunk.
+
+        Args:
+            chunk: Current chunk text.
+
+        Returns:
+            Overlap text to prepend to next chunk.
+        """
         if len(chunk) <= self.config.chunk_overlap:
             return chunk + " "
 
@@ -484,7 +584,15 @@ class TextProcessor:
 
     @staticmethod
     def extract_metadata_from_content(content: str) -> dict[str, Any]:
-        """Extract metadata from document content."""
+        """
+        Extract metadata from document content.
+
+        Args:
+            content: Document content.
+
+        Returns:
+            Dictionary with extracted metadata (title, tags, dates, word count, etc.).
+        """
         metadata = {}
 
         # Extract title (first heading or first line)
@@ -526,7 +634,15 @@ class TextProcessor:
 
     @staticmethod
     def clean_content(content: str) -> str:
-        """Clean and normalize content for better processing."""
+        """
+        Clean and normalize content for better processing.
+
+        Args:
+            content: Raw content.
+
+        Returns:
+            Cleaned and normalized content.
+        """
         # Remove excessive whitespace
         content = re.sub(r"\n\s*\n\s*\n", "\n\n", content)
 
@@ -547,7 +663,15 @@ class TextProcessor:
 
     @staticmethod
     def enhance_content_for_search(content: str) -> str:
-        """Enhance content to improve search relevance."""
+        """
+        Enhance content to improve search relevance.
+
+        Args:
+            content: Original content.
+
+        Returns:
+            Enhanced content with expanded abbreviations.
+        """
         enhanced = content
 
         # Expand abbreviations (could be made configurable)

@@ -12,12 +12,22 @@ class VectorDatabase(ABC):
     """
 
     def __init__(self, config: RAGConfig):
+        """
+        Initialize the vector database backend.
+
+        Args:
+            config: RAG configuration.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
 
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize the vector store backend."""
+        """
+        Initialize the vector store backend.
+
+        Sets up necessary connections and data structures.
+        """
         pass
 
     @abstractmethod
@@ -69,27 +79,50 @@ class VectorDatabase(ABC):
 
     @abstractmethod
     def get_document_count(self) -> int:
-        """Get the number of unique documents in the store."""
+        """
+        Get the number of unique documents in the store.
+
+        Returns:
+            Count of unique documents.
+        """
         pass
 
     @abstractmethod
     def get_chunk_count(self) -> int:
-        """Get the total number of chunks in the store."""
+        """
+        Get the total number of chunks in the store.
+
+        Returns:
+            Total number of chunks.
+        """
         pass
 
     @abstractmethod
     def is_empty(self) -> bool:
-        """Check if the vector store is empty."""
+        """
+        Check if the vector store is empty.
+
+        Returns:
+            True if store contains no documents.
+        """
         pass
 
     @abstractmethod
     async def clear(self) -> None:
-        """Clear all data from the vector store."""
+        """
+        Clear all data from the vector store.
+
+        Removes all documents and resets the store.
+        """
         pass
 
     @abstractmethod
     async def close(self) -> None:
-        """Close the vector store and cleanup resources."""
+        """
+        Close the vector store and cleanup resources.
+
+        Persists pending changes and releases resources.
+        """
         pass
 
     def health_check(self) -> dict[str, Any]:

@@ -22,6 +22,14 @@ class DocumentRetriever:
         embedding_manager: EmbeddingManager,
         vector_store: VectorStore,
     ):
+        """
+        Initialize the document retriever.
+
+        Args:
+            config: RAG configuration.
+            embedding_manager: Embedding generation manager.
+            vector_store: Vector storage backend.
+        """
         self.config = config
         self.embedding_manager = embedding_manager
         self.vector_store = vector_store
@@ -522,6 +530,12 @@ class QueryExpander:
     """
 
     def __init__(self, config: RAGConfig):
+        """
+        Initialize the query expander.
+
+        Args:
+            config: RAG configuration.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
 
@@ -537,7 +551,15 @@ class QueryExpander:
         }
 
     def expand_query(self, query: str) -> str:
-        """Expand query with synonyms and related terms."""
+        """
+        Expand query with synonyms and related terms.
+
+        Args:
+            query: Original query string.
+
+        Returns:
+            Expanded query with synonyms.
+        """
         words = query.lower().split()
         expanded_words = []
 
@@ -562,7 +584,17 @@ class ResultAggregator:
         keyword_results: list[dict[str, Any]] | None,
         top_k: int = 10,
     ) -> list[dict[str, Any]]:
-        """Merge results from different search strategies."""
+        """
+        Merge results from different search strategies.
+
+        Args:
+            semantic_results: Results from semantic search.
+            keyword_results: Results from keyword search (optional).
+            top_k: Maximum number of results to return.
+
+        Returns:
+            Merged and deduplicated results sorted by score.
+        """
         all_results = {}
 
         # Add semantic results

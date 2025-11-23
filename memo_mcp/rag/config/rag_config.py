@@ -59,7 +59,12 @@ class RAGConfig:
     log_level: int = logging.INFO
 
     def __post_init__(self) -> None:
-        """Post-initialization setup."""
+        """
+        Post-initialization setup.
+
+        Ensures paths are Path objects, creates directories, and adjusts
+        settings based on environment.
+        """
         # Ensure paths are Path objects
         self.data_root = Path(self.data_root)
         self.index_path = Path(f"{self.index_path}/{self.vector_store_type}")
@@ -74,7 +79,11 @@ class RAGConfig:
         print(self.device)
 
     def _adjust_for_environment(self) -> None:
-        """Adjust configuration based on available resources."""
+        """
+        Adjust configuration based on available resources.
+
+        Checks environment variables and resource constraints to optimize settings.
+        """
         # Check if we're in a resource-constrained environment
         if os.getenv("MEMO_RAG_LITE", "false").lower() == "true":
             self.batch_size = min(self.batch_size, 8)
@@ -99,23 +108,43 @@ class RAGConfig:
 
     @property
     def cache_dir(self) -> Path:
-        """Get the cache directory path."""
+        """
+        Get the cache directory path.
+
+        Returns:
+            Path to the cache directory, creating it if it doesn't exist.
+        """
         cache_path = self.index_path / "cache"
         cache_path.mkdir(exist_ok=True)
         return cache_path
 
     @property
     def vector_store_path(self) -> Path:
-        """Get the vector store path."""
+        """
+        Get the vector store path.
+
+        Returns:
+            Path to the vector store directory.
+        """
         return self.index_path / "vectors"
 
     @property
     def embeddings_cache_path(self) -> Path:
-        """Get the embeddings cache path."""
+        """
+        Get the embeddings cache path.
+
+        Returns:
+            Path to the embeddings cache file.
+        """
         return self.cache_dir / "embeddings.pkl"
 
     def get_device_preference(self) -> str:
-        """Get the preferred device for computations."""
+        """
+        Get the preferred device for computations.
+
+        Returns:
+            Device string: "cuda", "mps", or "cpu".
+        """
         if not self.use_gpu:
             return "cpu"
 
@@ -132,7 +161,12 @@ class RAGConfig:
         return "cpu"
 
     def to_dict(self) -> dict:
-        """Convert config to dictionary."""
+        """
+        Convert config to dictionary.
+
+        Returns:
+            Dictionary representation of configuration.
+        """
         return {
             "data_root": str(self.data_root),
             "index_path": str(self.index_path),
@@ -166,7 +200,17 @@ class DocumentMetadata:
     def from_file_path(
         cls, file_path: Path, chunk_index: int = 0, total_chunks: int = 1
     ) -> "DocumentMetadata":
-        """Create metadata from a file path."""
+        """
+        Create metadata from a file path.
+
+        Args:
+            file_path: Path to the document file.
+            chunk_index: Index of this chunk in the document.
+            total_chunks: Total number of chunks in the document.
+
+        Returns:
+            DocumentMetadata instance with extracted information.
+        """
         stat = file_path.stat()
 
         # Extract date from path structure (data/[...]/YYYY/MM/DD.md)
@@ -194,5 +238,10 @@ class DocumentMetadata:
 
 
 def load_config_from_env() -> RAGConfig:
-    """Load configuration with environment variable overrides."""
+    """
+    Load configuration with environment variable overrides.
+
+    Returns:
+        RAGConfig instance with environment-specific settings.
+    """
     return RAGConfig()

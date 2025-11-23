@@ -61,7 +61,7 @@ Restart your client and you're ready to use!
 
  If you wish to customize "advanced" settings, such as `top_k`, `chunk_size`, etc., keep reading the documentation.
 
-
+4. If you wish to run the RAG as a Claude agent (without MCP), make sure to instruct it to run the RAG CLI as per [Instructions](#rag-cli).
 
 ## Memo Data 
 
@@ -262,20 +262,53 @@ config = RAGConfig(
 [TODO: a comprehensible diagram showing how the RAG provides the "logic" for the retrieval, using the MCP as an interface to connect it as tools for the LLMs.]
 
 
-## CLI Usage
+## RAG CLI for Agents
 
-If you want to experiment with the RAG and MCP without the aid of LLM plugins, you can try writing scripts to run the implementations or run the demos via CLI.
-
-Examples:
-
-### RAG Query CLI
-
-Run RAG queries directly from the command line using the `task rag` command:
+If you want to experiment with the RAG and MCP without the aid of MCP plugins -- for example, with a Claude agent --, you can run `task rag -- [query]` or `task rag -- [query] [optional parameters]`. For full description of the optional parameters, run `task rag-help`.
 
 ```bash
 # Show help and usage examples
 task rag-help
+```
 
+```
+usage: main.py [-h] [-k TOP_K] [-d PATH] [-v {chroma,faiss,simple}] [-r] query
+
+Query memo journal entries using RAG (Retrieval-Augmented Generation)
+
+positional arguments:
+  query                 Natural language search query (e.g., 'how did I feel
+                        about work this year?')
+
+options:
+  -h, --help            show this help message and exit
+  -k TOP_K, --top-k TOP_K
+                        Number of top results to return (default: 366)
+  -d PATH, --data-dir PATH
+                        Path to memo data directory with YYYY/MM/DD.md
+                        structure (default: data/memo)
+  -v {chroma,faiss,simple}, --vector-store {chroma,faiss,simple}
+                        Vector store backend: chroma (persistent), faiss
+                        (fast), simple (in-memory) (default: chroma)
+  -r, --rebuild         Force rebuild of the search index (use after adding
+                        new entries)
+
+Examples:
+  "how did I feel about work this year?"
+  "last time I started a hobby" -k 10
+  "my thoughts on AI" --rebuild --vector-store faiss
+  "travel plans" -d /path/to/custom/data
+
+The tool uses semantic search to find relevant journal entries based on your query.
+Results are ranked by similarity score, and include file paths and content previews.
+```
+
+
+### RAG Query
+
+Run RAG queries directly from the command line using the `task rag` command:
+
+```bash
 # Run a query
 task rag -- "how did I feel about work this year?"
 
@@ -298,9 +331,9 @@ The CLI supports the following options:
 - `-v, --vector-store TYPE`: Vector store backend - chroma, faiss, or simple (default: chroma)
 - `-r, --rebuild`: Force rebuild of the search index
 
-### RAG (Python Script)
+### Demo script
 
-You can also try writing a simple script such as:
+You can also try writing your own simple script to make use of the rag codebase:
 
 ```python
 from memo_mcp.rag import create_rag_system, RAGConfig

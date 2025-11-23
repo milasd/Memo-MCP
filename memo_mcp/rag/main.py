@@ -103,10 +103,10 @@ def set_parser() -> argparse.ArgumentParser:
         description="Query memo journal entries using RAG (Retrieval-Augmented Generation)",
         epilog="""
 Examples:
-  %(prog)s "how did I feel about work this year?"
-  %(prog)s "last time I started a hobby" -k 10
-  %(prog)s "my thoughts on AI" --rebuild --vector-store faiss
-  %(prog)s "travel plans" -d /path/to/custom/data
+  "how did I feel about work this year?"
+  "last time I started a hobby" -k 10
+  "my thoughts on AI" --rebuild --vector-store faiss
+  "travel plans" -d /path/to/custom/data
 
 The tool uses semantic search to find relevant journal entries based on your query.
 Results are ranked by similarity score, and include file paths and content previews.

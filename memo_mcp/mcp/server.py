@@ -3,6 +3,7 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl
+from typing import Any
 
 from memo_mcp.config import TOP_K
 from memo_mcp.mcp.tool_handlers import (
@@ -20,9 +21,10 @@ server: Server = Server("memo-mcp")
 
 @server.list_resources()
 async def handle_list_resources() -> list[types.Resource]:
-    """
-    List available note resources.
-    Each note is exposed as a resource with a custom note:// URI scheme.
+    """List available note resources.
+
+    Returns:
+        List of Resource objects with note:// URI scheme
     """
     return [
         types.Resource(
@@ -37,9 +39,16 @@ async def handle_list_resources() -> list[types.Resource]:
 
 @server.read_resource()
 async def handle_read_resource(uri: AnyUrl) -> str:
-    """
-    Read a specific note's content by its URI.
-    The note name is extracted from the URI host component.
+    """Read a specific note's content by its URI.
+
+    Args:
+        uri: Note URI with scheme note://
+
+    Returns:
+        Note content as string
+
+    Raises:
+        ValueError: If URI scheme is unsupported or note not found
     """
     if uri.scheme != "note":
         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
@@ -53,9 +62,10 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
-    """
-    List available prompts.
-    Each prompt can have optional arguments to customize its behavior.
+    """List available prompts.
+
+    Returns:
+        List of available Prompt objects with their arguments
     """
     return [
         types.Prompt(
@@ -76,9 +86,17 @@ async def handle_list_prompts() -> list[types.Prompt]:
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
-    """
-    Generate a prompt by combining arguments with server state.
-    The prompt includes all current notes and can be customized via arguments.
+    """Generate a prompt by combining arguments with server state.
+
+    Args:
+        name: Prompt name (currently only "summarize-notes")
+        arguments: Optional dict with 'style' ("brief" or "detailed")
+
+    Returns:
+        GetPromptResult with generated prompt messages
+
+    Raises:
+        ValueError: If prompt name is unknown
     """
     if name != "summarize-notes":
         raise ValueError(f"Unknown prompt: {name}")
@@ -105,9 +123,10 @@ async def handle_get_prompt(
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
-    """
-    List available tools.
-    Each tool specifies its arguments using JSON Schema validation.
+    """List available tools.
+
+    Returns:
+        List of Tool objects with JSON Schema validation
     """
     return [
         types.Tool(
@@ -182,11 +201,16 @@ async def handle_list_tools() -> list[types.Tool]:
 
 @server.call_tool()
 async def handle_call_tool(
-    name: str, arguments: dict | None
+    name: str, arguments: dict[str, Any] | None
 ) -> list[types.TextContent]:
-    """
-    Handle tool execution requests.
-    Tools can modify server state and notify clients of changes.
+    """Handle tool execution requests.
+
+    Args:
+        name: Tool name to execute
+        arguments: Optional dict of tool arguments
+
+    Returns:
+        List with TextContent response or error message
     """
     try:
         if name == "add-memo":
@@ -210,7 +234,7 @@ async def handle_call_tool(
 
 
 async def main() -> None:
-    """Main server function with proper resource cleanup."""
+    """Run MCP server with stdin/stdout streams and cleanup on shutdown."""
     try:
         # Run the server using stdin/stdout streams
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):

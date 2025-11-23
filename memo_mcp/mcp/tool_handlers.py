@@ -9,17 +9,21 @@ from memo_mcp.utils.logging_setup import set_logger
 
 """
 MCP tool handlers for memo operations.
-
-This module contains the business logic for all MCP tools,
-keeping the server.py focused on protocol handling.
 """
 
 # Global RAG system instance
 _rag_system: MemoRAG | None = None
 
 
-def parse_date_filter_string(date_filter_str: str) -> tuple | None:
-    """Convert string date filter to date range tuple."""
+def parse_date_filter_string(date_filter_str: str) -> tuple[date, date] | None:
+    """Convert string date filter to date range tuple.
+
+    Args:
+        date_filter_str: Date filter in format "YYYY", "YYYY-MM", or "YYYY-MM-DD"
+
+    Returns:
+        Tuple of (start_date, end_date) or None if invalid
+    """
     if not date_filter_str:
         return None
 
@@ -46,7 +50,11 @@ def parse_date_filter_string(date_filter_str: str) -> tuple | None:
 
 
 async def get_rag_system() -> MemoRAG:
-    """Get or initialize the global RAG system."""
+    """Get or initialize the global RAG system.
+
+    Returns:
+        Initialized MemoRAG instance with built index
+    """
     global _rag_system
 
     if _rag_system is None:
@@ -59,7 +67,7 @@ async def get_rag_system() -> MemoRAG:
             data_root=DATA_DIR,
             use_gpu=True,
             cache_embeddings=True,
-            chunk_size=512,
+            chunk_size=2000,
             default_top_k=TOP_K,
             similarity_threshold=0.3,
         )
@@ -78,15 +86,25 @@ async def get_rag_system() -> MemoRAG:
 
 
 async def cleanup_rag_system() -> None:
-    """Clean up the RAG system on shutdown."""
+    """Clean up the RAG system on shutdown, releasing resources."""
     global _rag_system
     if _rag_system:
         await _rag_system.close()
         _rag_system = None
 
 
-async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the add-memo tool."""
+async def handle_add_memo(arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    """Handle the add-memo tool.
+
+    Args:
+        arguments: Dict with 'content' (required) and 'date' (optional, YYYY-MM-DD)
+
+    Returns:
+        List with single TextContent confirmation message
+
+    Raises:
+        ValueError: If required arguments are missing or invalid
+    """
     if not arguments:
         raise ValueError("Missing arguments")
 
@@ -146,8 +164,18 @@ async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
     ]
 
 
-async def handle_search_journal(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the search-journal tool."""
+async def handle_search_journal(arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    """Handle the search-journal tool.
+
+    Args:
+        arguments: Dict with 'query' (required), 'top_k' (optional), 'date_filter' (optional)
+
+    Returns:
+        List with single TextContent containing search results
+
+    Raises:
+        ValueError: If query parameter is missing
+    """
     if not arguments:
         raise ValueError("Missing arguments")
 
@@ -179,7 +207,7 @@ async def handle_search_journal(arguments: dict | None) -> list[types.TextConten
         ]
 
         for i, result in enumerate(results, 1):
-            score = result.get("score", 0.0)
+            score = result.get("similarity_score", 0.0)
             metadata = result["metadata"]
             text_preview = (
                 result["text"][:300] + "..."
@@ -204,8 +232,15 @@ async def handle_search_journal(arguments: dict | None) -> list[types.TextConten
     ]
 
 
-async def handle_get_journal_stats(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the get-journal-stats tool."""
+async def handle_get_journal_stats(arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    """Handle the get-journal-stats tool.
+
+    Args:
+        arguments: Optional dict (no parameters required)
+
+    Returns:
+        List with single TextContent containing journal statistics
+    """
     try:
         rag: MemoRAG = await get_rag_system()
         stats: dict[str, Any] = await rag.get_stats()
@@ -233,9 +268,16 @@ Memo Data Stats:
 
 
 async def handle_rebuild_journal_index(
-    arguments: dict | None,
+    arguments: dict[str, Any] | None,
 ) -> list[types.TextContent]:
-    """Handle the rebuild-journal-index tool."""
+    """Handle the rebuild-journal-index tool.
+
+    Args:
+        arguments: Optional dict with 'force' (bool, default False)
+
+    Returns:
+        List with single TextContent containing rebuild statistics
+    """
     try:
         force = arguments.get("force", False) if arguments else False
 

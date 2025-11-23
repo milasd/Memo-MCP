@@ -20,4 +20,5 @@ runner.py
 .coverage
 .pytest_cache
 .ruff_cache
+.mypy_cache
 htmlcov

@@ -18,19 +18,20 @@ class RAGConfig:
     index_path: Path = field(default_factory=lambda: INDEX_DIR)
 
     # Embedding settings
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    embedding_dimension: int = 384
+    embedding_model: str = "BAAI/bge-base-en-v1.5"
+    embedding_dimension: int = 768
     use_gpu: bool = True
     batch_size: int = 32
 
     # Chunking settings
-    chunk_size: int = 512
+    chunk_size: int = 2000
     chunk_overlap: int = 64
     min_chunk_size: int = 50
 
     # Retrieval settings
     default_top_k: int = TOP_K
-    similarity_threshold: float = 0.3
+    similarity_threshold: float = 0.4
+    enable_semantic_filtering: bool = False  # Enable adaptive semantic relevance filtering
 
     # Vector store settings
     vector_store_type: str = "chroma"  # faiss, chroma, qdrant, or simple

@@ -242,7 +242,7 @@ config = RAGConfig(
     data_root=Path("data/memo"),       # Path to your journal files
     use_gpu=True,                      # Enable GPU acceleration
     cache_embeddings=True,             # Cache embeddings for faster startup
-    chunk_size=512,                    # Text chunk size for processing
+    chunk_size=2000,                    # Text chunk size for processing
     default_top_k=5,                   # Default number of search results
     similarity_threshold=0.3           # Minimum similarity for results
 )

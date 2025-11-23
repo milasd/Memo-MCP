@@ -33,7 +33,7 @@ class DocumentRetriever:
         top_k: int,
         date_filter: tuple[date, date] | None = None,
         similarity_threshold: float = 0.0,
-        enable_reranking: bool = True,
+        enable_reranking: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Retrieve relevant documents for a query.
@@ -51,7 +51,7 @@ class DocumentRetriever:
         self.logger.debug(f"Retrieving documents for query: '{query_text}'")
 
         processed_query = self._preprocess_query(query_text)
-        query_embedding = self.embedding_manager.embed_text(processed_query)
+        query_embedding = self.embedding_manager.embed_text(processed_query, is_query=True)
 
         # Search vector store (get more results for filtering/reranking)
         search_k = min(top_k * 3, 50)  # Get extra results for filtering
@@ -71,7 +71,7 @@ class DocumentRetriever:
         if enable_reranking:
             raw_results = self._rerank_results(raw_results, query_text, processed_query)
 
-        # Apply final similarity threshold
+        # Apply similarity threshold filtering (vector similarity only)
         filtered_results = [
             result
             for result in raw_results
@@ -191,6 +191,95 @@ class DocumentRetriever:
         results.sort(key=lambda x: x["combined_score"], reverse=True)
 
         return results
+
+    def _apply_semantic_relevance_filtering(
+        self,
+        results: list[dict[str, Any]],
+        query_text: str,
+        base_threshold: float,
+        requested_count: int,
+    ) -> list[dict[str, Any]]:
+        """Apply semantic relevance filtering to remove unrelated results."""
+        if not results:
+            return []
+
+        # Calculate dynamic thresholds based on query specificity and result distribution
+        query_keywords = self._extract_query_keywords(query_text)
+        
+        # If we have very specific keywords, be more strict
+        keyword_specificity = len(query_keywords) / max(len(query_text.split()), 1)
+        
+        # Analyze result score distribution to set adaptive threshold
+        scores = [r.get("combined_score", r["similarity_score"]) for r in results]
+        if len(scores) < 2:
+            return results
+            
+        # Calculate score gaps to find natural breakpoints
+        score_gaps = []
+        sorted_scores = sorted(scores, reverse=True)
+        for i in range(len(sorted_scores) - 1):
+            gap = sorted_scores[i] - sorted_scores[i + 1]
+            score_gaps.append(gap)
+        
+        # Dynamic threshold based on largest score gap and query specificity
+        adaptive_threshold = base_threshold
+        if score_gaps:
+            max_gap_idx = score_gaps.index(max(score_gaps))
+            if max_gap_idx < requested_count and max_gap_idx > 0:
+                # Large gap suggests quality difference - set threshold above the gap
+                gap_threshold = sorted_scores[max_gap_idx + 1] + (max(score_gaps) * 0.3)
+                adaptive_threshold = max(base_threshold, gap_threshold)
+        
+        # Apply keyword relevance check for additional filtering
+        filtered_results = []
+        for result in results:
+            score = result.get("combined_score", result["similarity_score"])
+            
+            # Basic threshold check
+            if score < adaptive_threshold:
+                continue
+                
+            # Semantic relevance check - ensure some keyword overlap for very specific queries
+            if keyword_specificity > 0.3:  # Query is specific
+                keyword_overlap = self._calculate_keyword_overlap(query_text, result["text"])
+                
+                # For specific queries, require some keyword match unless similarity is very high
+                if score < 0.8 and keyword_overlap < 0.15:
+                    self.logger.debug(
+                        f"Filtered out result with low keyword overlap: {keyword_overlap:.3f}"
+                    )
+                    continue
+            
+            # Content length relevance - very short results need higher similarity
+            text_length = len(result["text"].split())
+            if text_length < 10 and score < 0.7:
+                continue
+                
+            filtered_results.append(result)
+        
+        self.logger.debug(
+            f"Semantic filtering: {len(results)} -> {len(filtered_results)} results "
+            f"(threshold: {adaptive_threshold:.3f}, keyword_specificity: {keyword_specificity:.3f})"
+        )
+        
+        return filtered_results
+
+    def _extract_query_keywords(self, query: str) -> set[str]:
+        """Extract meaningful keywords from query."""
+        stop_words = {
+            "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+            "has", "he", "in", "is", "it", "its", "of", "on", "that", "the",
+            "to", "was", "were", "will", "with", "would", "i", "you", "me",
+            "my", "this", "about", "how", "what", "when", "where", "why"
+        }
+        
+        keywords = {
+            word.lower()
+            for word in re.findall(r"\b\w+\b", query)
+            if word.lower() not in stop_words and len(word) > 2
+        }
+        
+        return keywords
 
     def _calculate_keyword_overlap(self, query: str, text: str) -> float:
         """Calculate keyword overlap between query and text."""

@@ -38,16 +38,14 @@ async def run_rag() -> None:
                 f"Using existing index with {stats['total_documents']} documents"
             )
 
-        results = await rag.query("feelings about work this year")
+        results = await rag.query("last time i started a hobby")
         rag.logger.info(f"\nFound {len(results)} results:")
         for i, result in enumerate(results, 1):
             similarity_score = result.get("similarity_score", 0.0)
-            combined_score = result.get("combined_score", similarity_score)
             metadata = result["metadata"]
             rag.logger.info(
                 f"\n{i}. {metadata.file_name} ({metadata.date_created})"
                 f"\n   Similarity Score: {similarity_score:.3f}"
-                f"\n   Combined Score: {combined_score:.3f}"
                 f"\n   Preview: {result['text'][:100]}...\n"
             )
 

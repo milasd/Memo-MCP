@@ -21,7 +21,13 @@ class MemoRAG:
     """
 
     def __init__(self, config: RAGConfig | None = None, logger: Logger | None = None):
-        """Initialize the RAG system with configuration."""
+        """
+        Initialize the RAG system with configuration.
+
+        Args:
+            config: RAG configuration, uses defaults if None.
+            logger: Logger instance, creates new one if None.
+        """
         self.config = config or RAGConfig()
         self.logger = logger or set_logger()
 
@@ -39,7 +45,12 @@ class MemoRAG:
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize the RAG system components."""
+        """
+        Initialize the RAG system components.
+
+        Raises:
+            Exception: If initialization of embedding manager or vector store fails.
+        """
         if self._initialized:
             return
 
@@ -190,7 +201,12 @@ class MemoRAG:
             raise
 
     async def get_stats(self) -> dict[str, Any]:
-        """Get statistics about the RAG system."""
+        """
+        Get statistics about the RAG system.
+
+        Returns:
+            Dictionary with system statistics including document counts and configuration.
+        """
         # Ensure system is initialized
         if not self._initialized:
             await self.initialize()
@@ -206,7 +222,12 @@ class MemoRAG:
         }
 
     def health_check(self) -> dict[str, Any]:
-        """Perform a health check of the RAG system."""
+        """
+        Perform a health check of the RAG system.
+
+        Returns:
+            Dictionary with health status, embedding test results, and statistics.
+        """
         try:
             if not self._initialized:
                 return {"status": "not_initialized", "healthy": False}
@@ -228,7 +249,11 @@ class MemoRAG:
             return {"status": "unhealthy", "healthy": False, "error": str(e)}
 
     async def close(self) -> None:
-        """Clean up resources."""
+        """
+        Clean up resources.
+
+        Closes vector store and embedding manager, releases memory.
+        """
         self.logger.info("Shutting down Memo RAG system...")
 
         if hasattr(self, "vector_store"):
@@ -247,7 +272,16 @@ class MemoRAG:
 async def create_rag_system(
     config: RAGConfig | None = None, logger: Logger | None = None
 ) -> MemoRAG:
-    """Create and initialize a RAG system."""
+    """
+    Create and initialize a RAG system.
+
+    Args:
+        config: RAG configuration, uses defaults if None.
+        logger: Logger instance, creates new one if None.
+
+    Returns:
+        Initialized MemoRAG instance.
+    """
     rag = MemoRAG(config, logger)
     await rag.initialize()
     return rag

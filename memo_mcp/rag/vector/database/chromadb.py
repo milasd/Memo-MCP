@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 import numpy as np
 from chromadb import Collection
 from chromadb.api.client import ClientAPI
-
+from collections.abc import Mapping
 from memo_mcp.rag.config.rag_config import DocumentMetadata, RAGConfig
 from memo_mcp.rag.vector.database.vector_backend import VectorDatabase
+from typing import Any
+
 
 # Error message constant
 _CLIENT_NOT_INITIALIZED_ERROR = (

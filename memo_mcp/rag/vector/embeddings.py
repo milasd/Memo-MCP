@@ -1,12 +1,11 @@
 import hashlib
 import logging
-import pickle
-from typing import Any, cast
-
 import numpy as np
-from numpy.typing import NDArray
+import pickle
 
 from memo_mcp.rag.config.rag_config import RAGConfig
+from numpy.typing import NDArray
+from typing import Any, cast
 
 
 class EmbeddingManager:
@@ -42,6 +41,8 @@ class EmbeddingManager:
         # Load model based on type
         if "sentence-transformers" in self.model_name:
             self._load_sentence_transformer()
+        elif "bge" in self.model_name.lower():
+            self._load_fastembed()
         else:
             self._load_huggingface_model()
 
@@ -92,6 +93,78 @@ class EmbeddingManager:
             raise ImportError(
                 "sentence-transformers not installed. "
                 "Install with: pip install sentence-transformers"
+            ) from e
+
+    def _load_fastembed(self) -> None:
+        """Load a BGE model using FastEmbed for optimal performance."""
+        try:
+            from fastembed import TextEmbedding
+
+            # Map model names to FastEmbed model names
+            fastembed_model_map = {
+                "BAAI/bge-base-en-v1.5": "BAAI/bge-base-en-v1.5",
+                "BAAI/bge-small-en-v1.5": "BAAI/bge-small-en-v1.5",
+                "BAAI/bge-large-en-v1.5": "BAAI/bge-large-en-v1.5",
+                "BAAI/bge-m3": "BAAI/bge-m3",
+            }
+
+            model_name = fastembed_model_map.get(self.model_name, self.model_name)
+
+            self.model = TextEmbedding(
+                model_name=model_name,
+                max_length=512,  # BGE models work well with 512 tokens
+                cache_dir=str(self.config.index_path / "fastembed_cache"),
+            )
+
+            # Update embedding dimension from model
+            # BGE models have known dimensions
+            if "bge-base" in self.model_name:
+                self.embedding_dimension = 768
+            elif "bge-small" in self.model_name:
+                self.embedding_dimension = 384
+            elif "bge-large" in self.model_name:
+                self.embedding_dimension = 1024
+            elif "bge-m3" in self.model_name:
+                self.embedding_dimension = 1024
+            else:
+                self.embedding_dimension = self.config.embedding_dimension
+
+            self.logger.info(
+                f"Loaded BGE model with FastEmbed: {model_name} (dim: {self.embedding_dimension})"
+            )
+
+        except ImportError as e:
+            raise ImportError(
+                "FastEmbed not installed. Install with: uv add fastembed"
+            ) from e
+
+    def _load_flag_embedding(self) -> None:
+        """Load a BGE model using FlagEmbedding for optimal performance."""
+        try:
+            from FlagEmbedding import BGEM3FlagModel, FlagModel
+
+            # Check if it's a BGE-M3 model or regular BGE model
+            if "m3" in self.model_name.lower():
+                self.model = BGEM3FlagModel(
+                    self.model_name,
+                    device=self.device if self.device != "mps" else "cpu",
+                )
+                # BGE-M3 has fixed dimension of 1024
+                self.embedding_dimension = 1024
+            else:
+                self.model = FlagModel(
+                    self.model_name,
+                    query_instruction_for_retrieval="Represent this sentence for searching relevant passages: ",
+                    use_fp16=(self.device != "cpu" and self.device != "mps"),
+                )
+                # Keep the configured dimension for regular BGE models
+                self.embedding_dimension = self.config.embedding_dimension
+
+            self.logger.info(f"Loaded BGE model with FlagEmbedding: {self.model_name}")
+
+        except ImportError as e:
+            raise ImportError(
+                "FlagEmbedding not installed. Install with: uv add FlagEmbedding"
             ) from e
 
     def _load_huggingface_model(self) -> None:
@@ -148,12 +221,21 @@ class EmbeddingManager:
         """Generate a cache key for text."""
         return hashlib.md5(f"{self.model_name}:{text}".encode()).hexdigest()
 
-    def embed_text(self, text: str) -> NDArray[np.float32]:
+    def _apply_bge_prefix(self, text: str, is_query: bool) -> str:
+        """Apply BGE model query prefix for better retrieval performance."""
+        if not is_query or "bge" not in self.model_name.lower():
+            return text
+
+        # BGE models benefit from query prefixes for retrieval tasks
+        return f"Represent this sentence for searching relevant passages: {text}"
+
+    def embed_text(self, text: str, is_query: bool = False) -> NDArray[np.float32]:
         """
         Generate embedding for a single text.
 
         Args:
             text: Input text
+            is_query: Whether this is a query (for BGE models, adds "Represent this sentence for searching relevant passages:")
 
         Returns:
             Embedding vector as numpy array
@@ -161,18 +243,29 @@ class EmbeddingManager:
         if not text.strip():
             return np.zeros(self.embedding_dimension, dtype=np.float32)
 
+        # Apply BGE query prefix if needed
+        processed_text = self._apply_bge_prefix(text, is_query)
+
         # Check cache first
-        cache_key = self._get_cache_key(text)
+        cache_key = self._get_cache_key(processed_text)
         if cache_key in self._cache:
             return self._cache[cache_key]
 
         # Generate embedding
         embedding: NDArray[np.float32]
-        if hasattr(self.model, "encode"):  # SentenceTransformer
-            embeddings = self._embed_with_sentence_transformer([text])
+        if hasattr(self.model, "embed"):  # FastEmbed
+            embeddings = self._embed_with_fastembed([processed_text])
+            embedding = embeddings[0]
+        elif hasattr(self.model, "encode") and not hasattr(
+            self.model, "encode_queries"
+        ):  # SentenceTransformer
+            embeddings = self._embed_with_sentence_transformer([processed_text])
+            embedding = embeddings[0]
+        elif hasattr(self.model, "encode_queries"):  # FlagEmbedding
+            embeddings = self._embed_with_flag_embedding([processed_text], is_query)
             embedding = embeddings[0]
         else:  # HuggingFace model
-            embeddings = self._embed_with_huggingface([text])
+            embeddings = self._embed_with_huggingface([processed_text])
             embedding = embeddings[0]
 
         # Cache the result
@@ -216,8 +309,16 @@ class EmbeddingManager:
 
         # Generate embeddings for uncached texts
         if uncached_texts:
-            if hasattr(self.model, "encode"):  # SentenceTransformer
+            if hasattr(self.model, "embed"):  # FastEmbed
+                new_embeddings = self._embed_with_fastembed(uncached_texts)
+            elif hasattr(self.model, "encode") and not hasattr(
+                self.model, "encode_queries"
+            ):  # SentenceTransformer
                 new_embeddings = self._embed_with_sentence_transformer(uncached_texts)
+            elif hasattr(self.model, "encode_queries"):  # FlagEmbedding
+                new_embeddings = self._embed_with_flag_embedding(
+                    uncached_texts, is_query=False
+                )
             else:  # HuggingFace model
                 new_embeddings = self._embed_with_huggingface(uncached_texts)
 
@@ -252,6 +353,72 @@ class EmbeddingManager:
         )
         return [cast(NDArray[np.float32], emb.astype(np.float32)) for emb in embeddings]
 
+    def _embed_with_fastembed(self, texts: list[str]) -> list[NDArray[np.float32]]:
+        """Generate embeddings using FastEmbed."""
+        if not self.model:
+            return []
+
+        try:
+            # FastEmbed's embed method returns a generator of numpy arrays
+            embeddings_generator = self.model.embed(texts)
+            embeddings = list(embeddings_generator)
+
+            return [
+                cast(NDArray[np.float32], emb.astype(np.float32)) for emb in embeddings
+            ]
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate embeddings with FastEmbed: {e}")
+            raise
+
+    def _embed_with_flag_embedding(
+        self, texts: list[str], is_query: bool = False
+    ) -> list[NDArray[np.float32]]:
+        """Generate embeddings using FlagEmbedding."""
+        if not self.model:
+            return []
+
+        try:
+            # Check if it's BGE-M3 model (has encode method that returns dict)
+            if hasattr(self.model, "encode") and "m3" in self.model_name.lower():
+                # BGE-M3 model returns dict with dense_vecs
+                result = self.model.encode(texts, batch_size=self.config.batch_size)
+                if isinstance(result, dict) and "dense_vecs" in result:
+                    embeddings = result["dense_vecs"]
+                else:
+                    embeddings = result
+            else:
+                # Regular BGE model with FlagModel
+                if is_query:
+                    embeddings = self.model.encode_queries(
+                        texts, batch_size=self.config.batch_size
+                    )
+                else:
+                    embeddings = self.model.encode_corpus(
+                        texts, batch_size=self.config.batch_size
+                    )
+
+            # Ensure embeddings is a numpy array
+            import numpy as np
+
+            if not isinstance(embeddings, np.ndarray):
+                embeddings = np.array(embeddings)
+
+            # Convert to list of individual embeddings
+            if len(embeddings.shape) == 1:
+                # Single embedding
+                return [cast(NDArray[np.float32], embeddings.astype(np.float32))]
+            else:
+                # Multiple embeddings
+                return [
+                    cast(NDArray[np.float32], emb.astype(np.float32))
+                    for emb in embeddings
+                ]
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate embeddings with FlagEmbedding: {e}")
+            raise
+
     def _embed_with_huggingface(self, texts: list[str]) -> list[NDArray[np.float32]]:
         """Generate embeddings using HuggingFace transformers."""
         try:
@@ -273,7 +440,7 @@ class EmbeddingManager:
                     padding=True,
                     truncation=True,
                     return_tensors="pt",
-                    max_length=512,
+                    max_length=2000,
                 )
 
                 if self.device != "cpu":

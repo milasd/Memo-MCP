@@ -1,25 +1,30 @@
-from datetime import date, timedelta
-from typing import Any
-
 import mcp.types as types
 
+from datetime import date, timedelta
 from memo_mcp.config import DATA_DIR, TOP_K
 from memo_mcp.rag import MemoRAG, RAGConfig, create_rag_system
 from memo_mcp.utils.logging_setup import set_logger
+from typing import Any
+
 
 """
-MCP tool handlers for memo operations.
-
-This module contains the business logic for all MCP tools,
-keeping the server.py focused on protocol handling.
+Tool handlers for the memo MCP operations.
 """
 
 # Global RAG system instance
 _rag_system: MemoRAG | None = None
 
 
-def parse_date_filter_string(date_filter_str: str) -> tuple | None:
-    """Convert string date filter to date range tuple."""
+def parse_date_filter_string(date_filter_str: str) -> tuple[date, date] | None:
+    """
+    Convert string date filter to date range tuple.
+
+    Args:
+        date_filter_str: Date filter in format "YYYY", "YYYY-MM", or "YYYY-MM-DD"
+
+    Returns:
+        Tuple of (start_date, end_date) or None if invalid
+    """
     if not date_filter_str:
         return None
 
@@ -46,7 +51,12 @@ def parse_date_filter_string(date_filter_str: str) -> tuple | None:
 
 
 async def get_rag_system() -> MemoRAG:
-    """Get or initialize the global RAG system."""
+    """
+    Get or initialize the global RAG system.
+
+    Returns:
+        Initialized MemoRAG instance with built index
+    """
     global _rag_system
 
     if _rag_system is None:
@@ -59,7 +69,7 @@ async def get_rag_system() -> MemoRAG:
             data_root=DATA_DIR,
             use_gpu=True,
             cache_embeddings=True,
-            chunk_size=512,
+            chunk_size=2000,
             default_top_k=TOP_K,
             similarity_threshold=0.3,
         )
@@ -78,15 +88,26 @@ async def get_rag_system() -> MemoRAG:
 
 
 async def cleanup_rag_system() -> None:
-    """Clean up the RAG system on shutdown."""
+    """Clean up the RAG system on shutdown, releasing resources."""
     global _rag_system
     if _rag_system:
         await _rag_system.close()
         _rag_system = None
 
 
-async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the add-memo tool."""
+async def handle_add_memo(arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    """
+    Handle the add-memo tool.
+
+    Args:
+        arguments: Dict with 'content' (required) and 'date' (optional, YYYY-MM-DD)
+
+    Returns:
+        List with single TextContent confirmation message
+
+    Raises:
+        ValueError: If required arguments are missing or invalid
+    """
     if not arguments:
         raise ValueError("Missing arguments")
 
@@ -98,13 +119,11 @@ async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
     entry_date = arguments.get("date")
     if entry_date:
         try:
-            # Parse the provided date
             year, month, day = entry_date.split("-")
             parsed_date = date(int(year), int(month), int(day))
         except (ValueError, TypeError) as e:
             raise ValueError("Invalid date format. Use YYYY-MM-DD format.") from e
     else:
-        # Use today's date
         parsed_date = date.today()
 
     # Create the directory structure
@@ -115,17 +134,15 @@ async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
     memo_dir = DATA_DIR / year_str / month_str
     memo_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create the file path
+    # Create the file
     memo_file = memo_dir / f"{day_str}.md"
 
     # Check if file exists and handle append/overwrite
     if memo_file.exists():
-        # Append to existing file
         with open(memo_file, "a", encoding="utf-8") as f:
             f.write(f"\n\n---\n\n{content}")
         action = "appended to"
     else:
-        # Create new file
         with open(memo_file, "w", encoding="utf-8") as f:
             f.write(content)
         action = "created"
@@ -135,8 +152,7 @@ async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
         rag = await get_rag_system()
         await rag.add_document(memo_file, force_reindex=True)
     except Exception as e:
-        # Log error but don't fail the memo creation
-        print(f"Warning: Failed to index new memo: {e}")
+        rag.logger.info(f"Warning: Failed to index new memo: {e}")
 
     return [
         types.TextContent(
@@ -146,8 +162,21 @@ async def handle_add_memo(arguments: dict | None) -> list[types.TextContent]:
     ]
 
 
-async def handle_search_journal(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the search-journal tool."""
+async def handle_search_journal(
+    arguments: dict[str, Any] | None,
+) -> list[types.TextContent]:
+    """
+    Handle the search-journal tool.
+
+    Args:
+        arguments: Dict with 'query' (required), 'top_k' (optional), 'date_filter' (optional)
+
+    Returns:
+        List with single TextContent containing search results
+
+    Raises:
+        ValueError: If query parameter is missing
+    """
     if not arguments:
         raise ValueError("Missing arguments")
 
@@ -159,13 +188,11 @@ async def handle_search_journal(arguments: dict | None) -> list[types.TextConten
     date_filter_str: str | None = arguments.get("date_filter")
     date_filter = parse_date_filter_string(date_filter_str) if date_filter_str else None
 
-    # Get RAG system
     rag = await get_rag_system()
 
-    # Perform search with proper date filter
+    # Search with date filter
     results = await rag.query(query, top_k=top_k, date_filter=date_filter)
 
-    # Format response
     if not results:
         response_text = f"No results found for query: '{query}'"
         if date_filter_str:
@@ -179,7 +206,7 @@ async def handle_search_journal(arguments: dict | None) -> list[types.TextConten
         ]
 
         for i, result in enumerate(results, 1):
-            score = result.get("score", 0.0)
+            score = result.get("similarity_score", 0.0)
             metadata = result["metadata"]
             text_preview = (
                 result["text"][:300] + "..."
@@ -204,8 +231,13 @@ async def handle_search_journal(arguments: dict | None) -> list[types.TextConten
     ]
 
 
-async def handle_get_journal_stats(arguments: dict | None) -> list[types.TextContent]:
-    """Handle the get-journal-stats tool."""
+async def handle_get_journal_stats() -> list[types.TextContent]:
+    """
+    Handle the get-journal-stats tool.
+
+    Returns:
+        List with single TextContent containing journal statistics
+    """
     try:
         rag: MemoRAG = await get_rag_system()
         stats: dict[str, Any] = await rag.get_stats()
@@ -233,9 +265,17 @@ Memo Data Stats:
 
 
 async def handle_rebuild_journal_index(
-    arguments: dict | None,
+    arguments: dict[str, Any] | None,
 ) -> list[types.TextContent]:
-    """Handle the rebuild-journal-index tool."""
+    """
+    Handle the rebuild-journal-index tool.
+
+    Args:
+        arguments: Optional dict with 'force' (bool, default False)
+
+    Returns:
+        List with single TextContent containing rebuild statistics
+    """
     try:
         force = arguments.get("force", False) if arguments else False
 

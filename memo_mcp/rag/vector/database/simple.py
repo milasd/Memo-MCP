@@ -1,10 +1,9 @@
-import pickle
-from typing import Any
-
 import numpy as np
+import pickle
 
 from memo_mcp.rag.config.rag_config import DocumentMetadata, RAGConfig
 from memo_mcp.rag.vector.database.vector_backend import VectorDatabase
+from typing import Any
 
 
 class SimpleBackend(VectorDatabase):

@@ -14,7 +14,7 @@ For privacy and safety, I recommend personal journaling with not-so-sensitive da
 - [MCP](#mcp)
 - [RAG](#rag)
 - [Architecture](#️architecture)
-- [CLI Usage](#cli-usage)
+- [CLI Usage](#rag-cli-for-agents)
 - [Development](#development)
 - [License](#license)
 
@@ -61,7 +61,7 @@ Restart your client and you're ready to use!
 
  If you wish to customize "advanced" settings, such as `top_k`, `chunk_size`, etc., keep reading the documentation.
 
-
+4. If you wish to run the RAG as a Claude agent (without MCP), make sure to instruct it to run the RAG CLI as per [Instructions](#query).
 
 ## Memo Data 
 
@@ -116,16 +116,20 @@ Memo/journal data is indexed to speed up search and retrieval. A recommendation 
 
 ### Tools
 
-The Memo MCP server connects theprovides these tools for LLM interaction:
+The Memo MCP server provides these tools for LLM interaction:
 
-1. **`search-journal`**: Search through journal entries
+1. **`add-memo`**: Add a new memo entry to your journal
+   - `content` (required): The memo entry content
+   - `date` (optional): Date for the entry in YYYY-MM-DD format (defaults to today)
+
+2. **`search-journal`**: Search through journal entries
    - `query` (required): Your search question
-   - `top_k` (optional): Number of results (1-365, default: 365)
+   - `top_k` (optional): Number of results (1-20, default: 366)
    - `date_filter` (optional): Filter by date (e.g., "2025", "2025-01")
 
-2. **`get-journal-stats`**: Get memo dataset stats
+3. **`get-journal-stats`**: Get memo dataset stats
 
-3. **`rebuild-journal-index`**: Rebuild the search index
+4. **`rebuild-journal-index`**: Rebuild the search index
    - `force` (optional): Force rebuild even if index exists
 
 ### Integration
@@ -242,7 +246,7 @@ config = RAGConfig(
     data_root=Path("data/memo"),       # Path to your journal files
     use_gpu=True,                      # Enable GPU acceleration
     cache_embeddings=True,             # Cache embeddings for faster startup
-    chunk_size=512,                    # Text chunk size for processing
+    chunk_size=2000,                    # Text chunk size for processing
     default_top_k=5,                   # Default number of search results
     similarity_threshold=0.3           # Minimum similarity for results
 )
@@ -262,21 +266,78 @@ config = RAGConfig(
 [TODO: a comprehensible diagram showing how the RAG provides the "logic" for the retrieval, using the MCP as an interface to connect it as tools for the LLMs.]
 
 
-## CLI Usage
+## RAG CLI for Agents
 
-If you want to experiment with the RAG and MCP without the aid of LLM plugins, you can try writing scripts to run the implementations or run the demos via CLI.
-
-Examples:
-
-### RAG (Python Demo)
-
-Try running the demo (`memo_mcp/rag/main.py`) to run journaling retrieval in your CLI:
+If you want to experiment with the RAG querying system without the aid of MCP plugins -- for example, with a Claude agent --, you can run `task rag -- [query]` or `task rag -- [query] [optional parameters]`. For full description of the optional parameters, run `task rag-help`.
 
 ```bash
-task rag
+# Show help and usage examples
+task rag-help
 ```
 
-or try writing a simple script such as:
+```
+usage: main.py [-h] [-k TOP_K] [-d PATH] [-v {chroma,faiss,simple}] [-r] query
+
+Query memo journal entries using RAG (Retrieval-Augmented Generation)
+
+positional arguments:
+  query                 Natural language search query (e.g., 'how did I feel
+                        about work this year?')
+
+options:
+  -h, --help            show this help message and exit
+  -k TOP_K, --top-k TOP_K
+                        Number of top results to return (default: 366)
+  -d PATH, --data-dir PATH
+                        Path to memo data directory with YYYY/MM/DD.md
+                        structure (default: data/memo)
+  -v {chroma,faiss,simple}, --vector-store {chroma,faiss,simple}
+                        Vector store backend: chroma (persistent), faiss
+                        (fast), simple (in-memory) (default: chroma)
+  -r, --rebuild         Force rebuild of the search index (use after adding
+                        new entries)
+
+Examples:
+  "how did I feel about work this year?"
+  "last time I started a hobby" -k 10
+  "my thoughts on AI" --rebuild --vector-store faiss
+  "travel plans" -d /path/to/custom/data
+
+The tool uses semantic search to find relevant journal entries based on your query.
+Results are ranked by similarity score, and include file paths and content previews.
+```
+
+
+### Query
+
+Run RAG queries directly from the command line using the `task rag` command:
+
+```bash
+# Run a query
+task rag -- "how did I feel about work this year?"
+
+# Query with custom number of results
+task rag -- "last time I started a hobby" -k 10
+
+# Rebuild index and search
+task rag -- "my thoughts on AI" --rebuild
+
+# Use custom data directory
+task rag -- "travel plans" -d /path/to/custom/data
+
+# Use different vector store backend
+task rag -- "productivity tips" --vector-store faiss
+```
+
+The CLI supports the following options:
+- `-k, --top-k N`: Number of results to return (default: 366)
+- `-d, --data-dir PATH`: Path to memo data directory (default: data/memo)
+- `-v, --vector-store TYPE`: Vector store backend - chroma, faiss, or simple (default: chroma)
+- `-r, --rebuild`: Force rebuild of the search index
+
+### Demo script
+
+You can also try writing your own simple script to make use of the rag codebase:
 
 ```python
 from memo_mcp.rag import create_rag_system, RAGConfig
@@ -314,13 +375,15 @@ To run the development tasks, use the following commands:
 
 ```bash
 task list
-
+```
+```
 task: Available tasks for this project:
 * check:                   Run code quality checks
 * clean:                   Clean up generated files
 * format:                  Format code using ruff
 * install-dev:             Install development dependencies
-* rag:                     Run the RAG demo script (memo_mcp/rag/main.py)
+* rag:                     Run RAG query over journal entries (usage: task rag -- "your query"). For help with the parameters, run: task rag-help
+* rag-help:                Show RAG CLI help and usage examples
 * server:                  Run the MCP server in the CLI
 * test:                    Run tests with pytest
 * test-cov:                Run tests with coverage report

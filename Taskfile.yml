@@ -70,11 +70,14 @@ tasks:
       - echo "[SUCCESS] Cleanup completed"
 
   rag:
-    desc: Run the RAG demo script (memo_mcp/rag/main.py)
+    desc: 'Run RAG query over journal entries (usage: task rag -- "your query" -k 10). For help with the parameters, run: task rag-help'
     cmds:
-      - echo "[RAG] Starting RAG demo..."
-      - uv run python memo_mcp/rag/main.py
-      - echo "[SUCCESS] RAG demo completed"
+      - uv run python memo_mcp/rag/main.py {{.CLI_ARGS}}
+
+  rag-help:
+    desc: Show RAG CLI help and usage examples
+    cmds:
+      - uv run python memo_mcp/rag/main.py --help
 
   server:
     desc: Run the MCP server in the CLI

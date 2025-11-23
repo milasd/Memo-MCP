@@ -1,6 +1,6 @@
-import numpy as np
-
 from __future__ import annotations
+
+import numpy as np
 from chromadb import Collection
 from chromadb.api.client import ClientAPI
 from collections.abc import Mapping

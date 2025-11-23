@@ -268,15 +268,39 @@ If you want to experiment with the RAG and MCP without the aid of LLM plugins, y
 
 Examples:
 
-### RAG (Python Demo)
+### RAG Query CLI
 
-Try running the demo (`memo_mcp/rag/main.py`) to run journaling retrieval in your CLI:
+Run RAG queries directly from the command line using the `task rag` command:
 
 ```bash
-task rag
+# Show help and usage examples
+task rag-help
+
+# Run a query
+task rag -- "how did I feel about work this year?"
+
+# Query with custom number of results
+task rag -- "last time I started a hobby" -k 10
+
+# Rebuild index and search
+task rag -- "my thoughts on AI" --rebuild
+
+# Use custom data directory
+task rag -- "travel plans" -d /path/to/custom/data
+
+# Use different vector store backend
+task rag -- "productivity tips" --vector-store faiss
 ```
 
-or try writing a simple script such as:
+The CLI supports the following options:
+- `-k, --top-k N`: Number of results to return (default: 366)
+- `-d, --data-dir PATH`: Path to memo data directory (default: data/memo)
+- `-v, --vector-store TYPE`: Vector store backend - chroma, faiss, or simple (default: chroma)
+- `-r, --rebuild`: Force rebuild of the search index
+
+### RAG (Python Script)
+
+You can also try writing a simple script such as:
 
 ```python
 from memo_mcp.rag import create_rag_system, RAGConfig
@@ -320,7 +344,8 @@ task: Available tasks for this project:
 * clean:                   Clean up generated files
 * format:                  Format code using ruff
 * install-dev:             Install development dependencies
-* rag:                     Run the RAG demo script (memo_mcp/rag/main.py)
+* rag:                     Run RAG query over journal entries (usage: task rag -- "your query" -k 10)
+* rag-help:                Show RAG CLI help and usage examples
 * server:                  Run the MCP server in the CLI
 * test:                    Run tests with pytest
 * test-cov:                Run tests with coverage report

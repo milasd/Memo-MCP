@@ -329,12 +329,6 @@ task rag -- "travel plans" -d /path/to/custom/data
 task rag -- "productivity tips" --vector-store faiss
 ```
 
-The CLI supports the following options:
-- `-k, --top-k N`: Number of results to return (default: 366)
-- `-d, --data-dir PATH`: Path to memo data directory (default: data/memo)
-- `-v, --vector-store TYPE`: Vector store backend - chroma, faiss, or simple (default: chroma)
-- `-r, --rebuild`: Force rebuild of the search index
-
 ### Demo script
 
 You can also try writing your own simple script to make use of the rag codebase:

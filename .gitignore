@@ -22,3 +22,5 @@ runner.py
 .ruff_cache
 .mypy_cache
 htmlcov
+
+.claude

@@ -61,7 +61,7 @@ Restart your client and you're ready to use!
 
  If you wish to customize "advanced" settings, such as `top_k`, `chunk_size`, etc., keep reading the documentation.
 
-4. If you wish to run the RAG as a Claude agent (without MCP), make sure to instruct it to run the RAG CLI as per [Instructions](#rag-cli).
+4. If you wish to run the RAG as a Claude agent (without MCP), make sure to instruct it to run the RAG CLI as per [Instructions](#query).
 
 ## Memo Data 
 
@@ -116,16 +116,20 @@ Memo/journal data is indexed to speed up search and retrieval. A recommendation 
 
 ### Tools
 
-The Memo MCP server connects theprovides these tools for LLM interaction:
+The Memo MCP server provides these tools for LLM interaction:
 
-1. **`search-journal`**: Search through journal entries
+1. **`add-memo`**: Add a new memo entry to your journal
+   - `content` (required): The memo entry content
+   - `date` (optional): Date for the entry in YYYY-MM-DD format (defaults to today)
+
+2. **`search-journal`**: Search through journal entries
    - `query` (required): Your search question
-   - `top_k` (optional): Number of results (1-20, default: 5)
+   - `top_k` (optional): Number of results (1-20, default: 366)
    - `date_filter` (optional): Filter by date (e.g., "2025", "2025-01")
 
-2. **`get-journal-stats`**: Get memo dataset stats
+3. **`get-journal-stats`**: Get memo dataset stats
 
-3. **`rebuild-journal-index`**: Rebuild the search index
+4. **`rebuild-journal-index`**: Rebuild the search index
    - `force` (optional): Force rebuild even if index exists
 
 ### Integration
@@ -304,7 +308,7 @@ Results are ranked by similarity score, and include file paths and content previ
 ```
 
 
-### RAG Query
+### Query
 
 Run RAG queries directly from the command line using the `task rag` command:
 
@@ -371,13 +375,14 @@ To run the development tasks, use the following commands:
 
 ```bash
 task list
-
+```
+```
 task: Available tasks for this project:
 * check:                   Run code quality checks
 * clean:                   Clean up generated files
 * format:                  Format code using ruff
 * install-dev:             Install development dependencies
-* rag:                     Run RAG query over journal entries (usage: task rag -- "your query" -k 10)
+* rag:                     Run RAG query over journal entries (usage: task rag -- "your query"). For help with the parameters, run: task rag-help
 * rag-help:                Show RAG CLI help and usage examples
 * server:                  Run the MCP server in the CLI
 * test:                    Run tests with pytest

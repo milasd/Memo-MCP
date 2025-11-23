@@ -1,9 +1,5 @@
 import mcp.server.stdio
 import mcp.types as types
-from mcp.server import NotificationOptions, Server
-from mcp.server.models import InitializationOptions
-from pydantic import AnyUrl
-from typing import Any
 
 from memo_mcp.config import TOP_K
 from memo_mcp.mcp.tool_handlers import (
@@ -13,6 +9,18 @@ from memo_mcp.mcp.tool_handlers import (
     handle_rebuild_journal_index,
     handle_search_journal,
 )
+from mcp.server import NotificationOptions, Server
+from mcp.server.models import InitializationOptions
+from pydantic import AnyUrl
+from typing import Any
+
+
+"""
+MCP server definition and handler registration for the memo journal system.
+
+Defines the MCP server instance and registers all protocol handlers (resources,
+prompts, tools). Tool implementations are in ./tool_handlers.py.
+"""
 
 notes: dict[str, str] = {}
 
@@ -21,7 +29,8 @@ server: Server = Server("memo-mcp")
 
 @server.list_resources()
 async def handle_list_resources() -> list[types.Resource]:
-    """List available note resources.
+    """
+    List available note resources.
 
     Returns:
         List of Resource objects with note:// URI scheme
@@ -39,7 +48,8 @@ async def handle_list_resources() -> list[types.Resource]:
 
 @server.read_resource()
 async def handle_read_resource(uri: AnyUrl) -> str:
-    """Read a specific note's content by its URI.
+    """
+    Read a specific note's content by its URI.
 
     Args:
         uri: Note URI with scheme note://
@@ -62,7 +72,8 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
-    """List available prompts.
+    """
+    List available prompts.
 
     Returns:
         List of available Prompt objects with their arguments
@@ -86,7 +97,8 @@ async def handle_list_prompts() -> list[types.Prompt]:
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
-    """Generate a prompt by combining arguments with server state.
+    """
+    Generate a prompt by combining arguments with server state.
 
     Args:
         name: Prompt name (currently only "summarize-notes")
@@ -123,7 +135,8 @@ async def handle_get_prompt(
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
-    """List available tools.
+    """
+    List available tools.
 
     Returns:
         List of Tool objects with JSON Schema validation
@@ -203,7 +216,8 @@ async def handle_list_tools() -> list[types.Tool]:
 async def handle_call_tool(
     name: str, arguments: dict[str, Any] | None
 ) -> list[types.TextContent]:
-    """Handle tool execution requests.
+    """
+    Handle tool execution requests.
 
     Args:
         name: Tool name to execute

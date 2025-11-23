@@ -1,12 +1,11 @@
 import hashlib
 import logging
-import pickle
-from typing import Any, cast
-
 import numpy as np
-from numpy.typing import NDArray
+import pickle
 
 from memo_mcp.rag.config.rag_config import RAGConfig
+from numpy.typing import NDArray
+from typing import Any, cast
 
 
 class EmbeddingManager:
@@ -104,13 +103,13 @@ class EmbeddingManager:
             # Map model names to FastEmbed model names
             fastembed_model_map = {
                 "BAAI/bge-base-en-v1.5": "BAAI/bge-base-en-v1.5",
-                "BAAI/bge-small-en-v1.5": "BAAI/bge-small-en-v1.5", 
+                "BAAI/bge-small-en-v1.5": "BAAI/bge-small-en-v1.5",
                 "BAAI/bge-large-en-v1.5": "BAAI/bge-large-en-v1.5",
                 "BAAI/bge-m3": "BAAI/bge-m3",
             }
 
             model_name = fastembed_model_map.get(self.model_name, self.model_name)
-            
+
             self.model = TextEmbedding(
                 model_name=model_name,
                 max_length=512,  # BGE models work well with 512 tokens
@@ -130,12 +129,13 @@ class EmbeddingManager:
             else:
                 self.embedding_dimension = self.config.embedding_dimension
 
-            self.logger.info(f"Loaded BGE model with FastEmbed: {model_name} (dim: {self.embedding_dimension})")
+            self.logger.info(
+                f"Loaded BGE model with FastEmbed: {model_name} (dim: {self.embedding_dimension})"
+            )
 
         except ImportError as e:
             raise ImportError(
-                "FastEmbed not installed. "
-                "Install with: uv add fastembed"
+                "FastEmbed not installed. Install with: uv add fastembed"
             ) from e
 
     def _load_flag_embedding(self) -> None:
@@ -164,8 +164,7 @@ class EmbeddingManager:
 
         except ImportError as e:
             raise ImportError(
-                "FlagEmbedding not installed. "
-                "Install with: uv add FlagEmbedding"
+                "FlagEmbedding not installed. Install with: uv add FlagEmbedding"
             ) from e
 
     def _load_huggingface_model(self) -> None:
@@ -226,7 +225,7 @@ class EmbeddingManager:
         """Apply BGE model query prefix for better retrieval performance."""
         if not is_query or "bge" not in self.model_name.lower():
             return text
-        
+
         # BGE models benefit from query prefixes for retrieval tasks
         return f"Represent this sentence for searching relevant passages: {text}"
 
@@ -257,7 +256,9 @@ class EmbeddingManager:
         if hasattr(self.model, "embed"):  # FastEmbed
             embeddings = self._embed_with_fastembed([processed_text])
             embedding = embeddings[0]
-        elif hasattr(self.model, "encode") and not hasattr(self.model, "encode_queries"):  # SentenceTransformer
+        elif hasattr(self.model, "encode") and not hasattr(
+            self.model, "encode_queries"
+        ):  # SentenceTransformer
             embeddings = self._embed_with_sentence_transformer([processed_text])
             embedding = embeddings[0]
         elif hasattr(self.model, "encode_queries"):  # FlagEmbedding
@@ -310,10 +311,14 @@ class EmbeddingManager:
         if uncached_texts:
             if hasattr(self.model, "embed"):  # FastEmbed
                 new_embeddings = self._embed_with_fastembed(uncached_texts)
-            elif hasattr(self.model, "encode") and not hasattr(self.model, "encode_queries"):  # SentenceTransformer
+            elif hasattr(self.model, "encode") and not hasattr(
+                self.model, "encode_queries"
+            ):  # SentenceTransformer
                 new_embeddings = self._embed_with_sentence_transformer(uncached_texts)
             elif hasattr(self.model, "encode_queries"):  # FlagEmbedding
-                new_embeddings = self._embed_with_flag_embedding(uncached_texts, is_query=False)
+                new_embeddings = self._embed_with_flag_embedding(
+                    uncached_texts, is_query=False
+                )
             else:  # HuggingFace model
                 new_embeddings = self._embed_with_huggingface(uncached_texts)
 
@@ -357,14 +362,18 @@ class EmbeddingManager:
             # FastEmbed's embed method returns a generator of numpy arrays
             embeddings_generator = self.model.embed(texts)
             embeddings = list(embeddings_generator)
-            
-            return [cast(NDArray[np.float32], emb.astype(np.float32)) for emb in embeddings]
+
+            return [
+                cast(NDArray[np.float32], emb.astype(np.float32)) for emb in embeddings
+            ]
 
         except Exception as e:
             self.logger.error(f"Failed to generate embeddings with FastEmbed: {e}")
             raise
 
-    def _embed_with_flag_embedding(self, texts: list[str], is_query: bool = False) -> list[NDArray[np.float32]]:
+    def _embed_with_flag_embedding(
+        self, texts: list[str], is_query: bool = False
+    ) -> list[NDArray[np.float32]]:
         """Generate embeddings using FlagEmbedding."""
         if not self.model:
             return []
@@ -381,22 +390,30 @@ class EmbeddingManager:
             else:
                 # Regular BGE model with FlagModel
                 if is_query:
-                    embeddings = self.model.encode_queries(texts, batch_size=self.config.batch_size)
+                    embeddings = self.model.encode_queries(
+                        texts, batch_size=self.config.batch_size
+                    )
                 else:
-                    embeddings = self.model.encode_corpus(texts, batch_size=self.config.batch_size)
+                    embeddings = self.model.encode_corpus(
+                        texts, batch_size=self.config.batch_size
+                    )
 
             # Ensure embeddings is a numpy array
             import numpy as np
+
             if not isinstance(embeddings, np.ndarray):
                 embeddings = np.array(embeddings)
-            
+
             # Convert to list of individual embeddings
             if len(embeddings.shape) == 1:
                 # Single embedding
                 return [cast(NDArray[np.float32], embeddings.astype(np.float32))]
             else:
                 # Multiple embeddings
-                return [cast(NDArray[np.float32], emb.astype(np.float32)) for emb in embeddings]
+                return [
+                    cast(NDArray[np.float32], emb.astype(np.float32))
+                    for emb in embeddings
+                ]
 
         except Exception as e:
             self.logger.error(f"Failed to generate embeddings with FlagEmbedding: {e}")

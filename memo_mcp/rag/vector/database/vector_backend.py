@@ -1,18 +1,14 @@
-import logging
-from abc import ABC, abstractmethod
-from typing import Any
-
 import numpy as np
+import logging
 
+from abc import ABC, abstractmethod
 from memo_mcp.rag.config.rag_config import DocumentMetadata, RAGConfig
+from typing import Any
 
 
 class VectorDatabase(ABC):
     """
     Abstract base class defining the interface for all vector store backends.
-
-    This ensures consistent API across different vector database implementations
-    (FAISS, Chroma, Qdrant, Simple (in-memory), etc.)
     """
 
     def __init__(self, config: RAGConfig):

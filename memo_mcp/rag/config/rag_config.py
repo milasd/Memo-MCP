@@ -31,7 +31,9 @@ class RAGConfig:
     # Retrieval settings
     default_top_k: int = TOP_K
     similarity_threshold: float = 0.4
-    enable_semantic_filtering: bool = False  # Enable adaptive semantic relevance filtering
+    enable_semantic_filtering: bool = (
+        False  # Enable adaptive semantic relevance filtering
+    )
 
     # Vector store settings
     vector_store_type: str = "chroma"  # faiss, chroma, qdrant, or simple

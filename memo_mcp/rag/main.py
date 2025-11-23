@@ -11,7 +11,7 @@ from memo_mcp.utils.logging_setup import set_logger
 # os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 
-"""Sample script to run RAG system locally without MCP."""
+"""Sample test script to run RAG system locally without MCP."""
 
 SAMPLE_DATA_DIR = Path("data/memo_example")
 VECTOR_DB = "chroma"  # you can try "faiss", "chroma", "simple".

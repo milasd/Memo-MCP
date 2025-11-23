@@ -14,7 +14,7 @@ For privacy and safety, I recommend personal journaling with not-so-sensitive da
 - [MCP](#mcp)
 - [RAG](#rag)
 - [Architecture](#️architecture)
-- [CLI Usage](#cli-usage)
+- [CLI Usage](#rag-cli-for-agents)
 - [Development](#development)
 - [License](#license)
 
@@ -268,7 +268,7 @@ config = RAGConfig(
 
 ## RAG CLI for Agents
 
-If you want to experiment with the RAG and MCP without the aid of MCP plugins -- for example, with a Claude agent --, you can run `task rag -- [query]` or `task rag -- [query] [optional parameters]`. For full description of the optional parameters, run `task rag-help`.
+If you want to experiment with the RAG querying system without the aid of MCP plugins -- for example, with a Claude agent --, you can run `task rag -- [query]` or `task rag -- [query] [optional parameters]`. For full description of the optional parameters, run `task rag-help`.
 
 ```bash
 # Show help and usage examples
